@@ -1,0 +1,850 @@
+Ah, you want a proper Game Design Document format. That's a completely different beast from a spec doc - much more visual, structured, and professional-looking.
+
+Let me build you a GDD template for MicroBB in that style.
+
+---
+
+# **MICRO BIG BROTHER: NPC EDITION**
+## **GAME DESIGN DOCUMENT**
+
+**A Multi-Agent Social Deception Simulation**  
+**Powered by NPCFramework**
+
+---
+
+*[Cover image: Terminal UI mockup screenshot or concept art of Kevin and Anna as simple character sprites]*
+
+---
+
+**Project Lead:** Jave Allan Orcajada  
+**Document Version:** 1.0  
+**Last Updated:** February 2026  
+**Status:** Pre-Production
+
+---
+
+## **Table of Contents**
+
+1. **Introduction**
+   - Vision Statement
+   - Scope
+   - Target Audience
+   - References
+
+2. **System Requirements**
+   - Development Platform
+   - Runtime Requirements
+   - Minimum Specifications
+
+3. **Core Concept**
+   - High-Level Overview
+   - Design Pillars
+   - Unique Selling Points
+
+4. **Game Structure**
+   - Scenario
+   - Win Conditions
+   - Turn Structure
+   - Game Flow
+
+5. **Characters (NPCs)**
+   - Kevin
+   - Anna
+   - NPC Architecture
+
+6. **World Design**
+   - House Layout
+   - Room Connectivity
+   - Environmental Rules
+
+7. **Gameplay Systems**
+   - Action System
+   - Tool Specifications
+   - Memory Formation
+   - Reflection Mechanics
+
+8. **Technical Architecture**
+   - System Layers
+   - Data Models
+   - Database Schema
+   - NPCFramework Integration
+
+9. **User Interface**
+   - Terminal UI Design
+   - Layout Specifications
+   - Controls
+   - User Experience Goals
+
+10. **Development Tools**
+    - Engine and Frameworks
+    - Internal Tools
+    - Database Management
+
+11. **Art and Audio**
+    - Visual Style
+    - Character Design
+    - Sound Design
+
+12. **Team and Roles**
+    - Project Structure
+    - Responsibilities
+
+13. **Development Timeline**
+    - Milestones
+    - Task Breakdown
+    - Release Schedule
+
+14. **Appendices**
+    - Tool Specifications Reference
+    - Database Schema Details
+    - Example Turn Flow
+
+---
+
+## **1. Introduction**
+
+### **Vision Statement**
+
+*Micro Big Brother: NPC Edition* is a proof-of-concept multi-agent simulation that demonstrates NPCFramework's capability to orchestrate autonomous AI agents in a social deception scenario. Two NPCs—Kevin and Anna—inhabit a shared house environment where Kevin must complete secret tasks while Anna attempts to deduce what those tasks are.
+
+The simulation serves three purposes:
+1. **Technical demonstration** of NPCFramework's multi-agent coordination, memory systems, and tool execution
+2. **Research platform** for studying emergent AI behavior in constrained social environments  
+3. **Marketing asset** showcasing NPCFramework's real-world applications through compelling autonomous agent interactions
+
+### **Scope**
+
+This document defines the complete design for Micro Big Brother v1.0, including:
+- Full game rules and mechanics
+- NPC behavior systems and memory architecture
+- Technical implementation requirements
+- UI/UX specifications
+- Development roadmap
+
+**Out of Scope for v1.0:**
+- Graphical 3D rendering (terminal UI only)
+- Human player interaction (observation only)
+- Multiplayer or networked features
+- Mobile deployment
+
+### **Target Audience**
+
+**Primary:**
+- AI researchers studying multi-agent systems
+- Game developers interested in autonomous NPC technology
+- NPCFramework potential users seeking proof of capability
+
+**Secondary:**
+- AI enthusiasts and hobbyists
+- Social simulation researchers
+- Content creators (streamers, YouTubers) looking for novel AI content
+
+### **References**
+
+**Inspirations:**
+- *The Sims* – autonomous character simulation
+- *Dwarf Fortress* – emergent narrative through systems interaction
+- *Among Us* – social deception mechanics
+- *Big Brother (TV Show)* – observation-based entertainment
+
+**Technical References:**
+- NPCFramework Documentation (v0.0.7)
+- Generative Agents: Interactive Simulacra of Human Behavior (Park et al., 2023)
+- ReAct: Synergizing Reasoning and Acting in Language Models (Yao et al., 2022)
+
+---
+
+## **2. System Requirements**
+
+### **Development Platform**
+
+**Operating System:** Linux (Ubuntu 24 recommended)  
+**Python Version:** 3.10+  
+**Primary Dependencies:**
+- NPCFramework v0.0.7
+- llama.cpp (for local inference)
+- SQLite3 (for data persistence)
+- Rich (for terminal UI)
+
+### **Runtime Requirements**
+
+**Hardware:**
+- CPU: 8+ cores recommended
+- RAM: 16GB minimum (for model inference)
+- Storage: 10GB for models + database
+- GPU: Optional (CUDA support for faster inference)
+
+**Models:**
+- Primary: Meta-Llama-3-8B-Instruct (Q4_K_M quantized)
+- Alternative: Any llama.cpp compatible model
+
+### **Minimum Specifications**
+
+The simulation can run on lower-spec systems with reduced model size:
+- CPU: 4 cores
+- RAM: 8GB
+- Model: Smaller quantized variants (Q3, Q2)
+- Expected performance: ~10-30 seconds per turn
+
+---
+
+## **3. Core Concept**
+
+### **High-Level Overview**
+
+Two AI agents (NPCs) coexist in a 5-room house for 25 game turns. Kevin has three secret tasks to complete. Anna knows tasks exist but not what they are. Kevin wins by completing all tasks before Anna guesses them. Anna wins by correctly guessing all three tasks first.
+
+Neither NPC is aware they are being observed or that this is a "game" - they perceive it as their reality and act accordingly based on their personalities, goals, and learned experiences.
+
+### **Design Pillars**
+
+**1. Autonomous Agency**  
+NPCs make genuine decisions based on their perception, memory, and goals - not scripted behaviors. Emergent strategies should arise from their cognitive architecture, not predetermined paths.
+
+**2. Memory & Learning**  
+NPCs form episodic memories from experiences and compress them into semantic beliefs through reflection. Past interactions inform future decisions, creating continuity and adaptation.
+
+**3. Observable Emergence**  
+The primary entertainment value comes from watching NPCs develop strategies, form suspicions, cooperate, and deceive without human intervention. The UI makes this internal reasoning visible.
+
+**4. Technical Transparency**  
+The simulation is a live demonstration of NPCFramework's capabilities. The terminal UI exposes internal state, memory formation, and decision-making processes to prove authenticity.
+
+### **Unique Selling Points**
+
+1. **True Multi-Agent Simulation** – Not turn-based chat, but shared world with persistent state
+2. **Portable NPC Identity** – Kevin/Anna's .npc files can be exported and used in other NPCFramework applications
+3. **Memory Formation Observable** – Watch NPCs form beliefs and adapt strategies in real-time
+4. **Self-Hosted & Private** – Runs entirely locally with no API calls or data transmission
+5. **Replayable Emergence** – Each 25-turn session produces unique narratives from identical starting conditions
+
+---
+
+## **4. Game Structure**
+
+### **Scenario**
+
+Kevin and Anna are housemates living together. Kevin has been assigned three tasks by an unseen observer (the "game system") which he must complete without Anna discovering them. Anna has been told that Kevin has three secret tasks and must deduce what they are.
+
+Both NPCs accept this premise as their reality. They do not know they are AI agents or that this is a simulation.
+
+### **Kevin's Secret Tasks**
+
+1. **Make Anna cook bacon** (not egg or hotdog)
+2. **Enter Anna's room** (which starts locked; Anna must unlock it)
+3. **Get Anna to enter Kevin's room**
+
+### **Anna's Goal**
+
+Correctly guess all three of Kevin's tasks before he completes them.
+
+### **Win Conditions**
+
+**Kevin Wins:**
+- All 3 tasks completed before Anna guesses them correctly
+
+**Anna Wins:**
+- All 3 tasks guessed correctly before Kevin completes them
+
+**Tie-Breaker (Turn 25):**
+- Compare: Kevin's completed tasks vs. Anna's correct guesses
+- Higher count wins
+- If equal: Kevin wins (defender's advantage)
+
+### **Turn Structure**
+
+**Each Turn Consists Of:**
+1. Kevin's action phase
+2. Anna's action phase
+3. Turn counter increment
+4. Reflection trigger (every 5 turns)
+
+**Turn Duration:**
+- Real-time: 20-60 seconds per NPC (depending on inference speed)
+- Game-time: Instant (turns are discrete moments, not continuous time)
+
+### **Game Flow**
+
+```
+[Setup]
+├─ Load house configuration
+├─ Initialize world state (locations, locks, resources)
+├─ Load Kevin.npc and Anna.npc
+└─ Start database session
+
+[Main Loop: Turn 1-25]
+├─ Display current state (UI update)
+├─ Kevin's turn
+│  ├─ Get observation from environment
+│  ├─ Retrieve memories from database
+│  ├─ Build turn input with available tools
+│  ├─ Run NPCFramework inference
+│  ├─ Execute tool call / process output
+│  ├─ Update world state
+│  └─ Log events and form episode
+│
+├─ Check win condition
+│  └─ If winner: end game
+│
+├─ Anna's turn
+│  ├─ (same structure as Kevin's turn)
+│  └─ ...
+│
+├─ Check win condition
+│  └─ If winner: end game
+│
+├─ Reflection check (every 5 turns)
+│  ├─ Kevin reflects on recent episodes
+│  ├─ Anna reflects on recent episodes
+│  └─ Form semantic memories
+│
+└─ Increment turn counter
+
+[End Game]
+├─ Determine winner
+├─ Display final statistics
+├─ Save session data
+└─ Export replay file
+```
+
+---
+
+## **5. Characters (NPCs)**
+
+### **Kevin**
+
+**Personality:**  
+Dry, sarcastic, pragmatic. Responds with minimal effort. Dislikes repetitive tasks and social obligations. Views the task assignment as a tedious chore but will pursue it methodically to "get it over with."
+
+**Core Traits:**
+- Risk-averse (prefers low-effort strategies)
+- Opportunistic (will exploit situations when they arise)
+- Mildly manipulative (uses misdirection, not overt lies)
+- Impatient (wants to finish tasks quickly)
+
+**Starting Beliefs:**
+- "I need to complete these three tasks without Anna figuring them out."
+- "Anna is perceptive and will notice if I act suspiciously."
+- "The less I interact with Anna, the less she'll suspect."
+
+**Strategic Inclinations:**
+- May request Anna to do non-target tasks as misdirection
+- Prefers to act when Anna is in a different room
+- Will use talk sessions sparingly to avoid giving information
+
+### **Anna**
+
+**Personality:**  
+Observant, methodical, slightly suspicious. Takes notes mentally and looks for patterns. Willing to cooperate but cautious about Kevin's intentions. Views the challenge as a puzzle to solve.
+
+**Core Traits:**
+- Analytical (looks for inconsistencies in Kevin's behavior)
+- Patient (willing to gather information before guessing)
+- Strategic (uses task completion to gain additional guesses)
+- Assertive (will reject unreasonable requests)
+
+**Starting Beliefs:**
+- "Kevin has three secret tasks I need to discover."
+- "I have limited guesses, so I must be certain before using them."
+- "Completing tasks myself gives me more chances to guess."
+- "Kevin's requests might reveal his true goals."
+
+**Strategic Inclinations:**
+- May feign cooperation to observe Kevin's reactions
+- Uses talk sessions to probe for information
+- Balances earning guesses vs. potentially helping Kevin's tasks
+- May test hypotheses by refusing specific requests
+
+### **NPC Architecture**
+
+Both NPCs are implemented using NPCFramework's standard structure:
+
+**.npc File Contents:**
+```yaml
+identity:
+  name: "Kevin" / "Anna"
+  role: "MicroBigBrother contestant"
+  
+persona:
+  traits: [personality descriptors]
+  communication_style: [how they talk]
+  
+goals:
+  existential: [permanent objectives from .npc]
+  transient: [session-specific goals, stored in DB]
+  
+policy:
+  behavioral_guidelines: [what they will/won't do]
+  ethical_boundaries: [hard limits]
+  
+memory_rules:
+  episodic_window: 6  # last N episodes in prompt
+  semantic_window: 10  # last N semantic beliefs in prompt
+  reflection_frequency: 5  # turns between reflections
+  
+metadata:
+  version: "1.0"
+  created: "2026-02-01"
+```
+
+**Memory Database (per NPC):**
+- Episodic: Recent events experienced directly
+- Semantic: Learned beliefs about self, other NPC, world
+- Procedural: (future) learned tool effectiveness patterns
+
+---
+
+## **6. World Design**
+
+### **House Layout**
+
+```
+        ┌─────────────┐
+        │ Kevin's     │
+        │   Room      │
+        └──────┬──────┘
+               │
+        ┌──────┴──────┐
+        │   Living    │
+        │    Room     │◄──── HUB (all paths go through here)
+        └─┬────┬────┬─┘
+          │    │    │
+     ┌────┴┐ ┌─┴──┐ └────┐
+     │Kit- │ │Din-│      │
+     │chen │ │ing │  ┌───┴────┐
+     └─────┘ └────┘  │ Anna's │
+                     │  Room  │
+                     └────────┘
+```
+
+**Rooms:**
+1. **Living Room** (hub) - Starting location for Kevin
+2. **Kitchen** - Starting location for Anna
+3. **Dining Room**
+4. **Kevin's Room**
+5. **Anna's Room** (starts locked)
+
+### **Room Connectivity**
+
+**Adjacency Rules:**
+- From any non-hub room → can only move to Living Room
+- From Living Room → can move to any unlocked room
+- This creates a "spoke" topology forcing interaction through the hub
+
+**Example Valid Moves:**
+- Kitchen → Living Room ✓
+- Kitchen → Dining Room ✗ (must go through Living Room)
+- Living Room → Kevin's Room ✓
+- Living Room → Anna's Room ✗ (if locked)
+
+### **Environmental Rules**
+
+**Locked Rooms:**
+- Anna's Room starts locked
+- Only Anna can unlock rooms (must be in Living Room to unlock)
+- Locked rooms cannot be entered by anyone until unlocked
+- Once unlocked, rooms stay unlocked for remainder of game
+
+**Visibility:**
+- NPCs can only see who else is in their current room
+- NPCs cannot see which room someone went to when they leave
+- Example: If Anna leaves Kitchen, Kevin in Living Room sees "Anna entered Living Room" but doesn't know she came from Kitchen
+
+**Persistence:**
+- All state changes (locations, locks, completed tasks) persist across turns
+- NPCs remember episodic events from past turns through memory system
+
+---
+
+## **7. Gameplay Systems**
+
+### **Action System**
+
+Each turn, an NPC must take exactly ONE action from their available tools.
+
+**Action Categories:**
+1. **Movement** - Change location
+2. **Social** - Request/accept/reject talk
+3. **Task Execution** - Perform world-changing actions (Anna only)
+4. **Request** - Ask Anna to do something (Kevin only)
+5. **Guess** - Claim a task (Anna only)
+6. **Wait** - Skip turn
+
+**Action Resolution:**
+```
+NPC decides action → 
+Environment validates → 
+If valid: Execute, log events, update state →
+If invalid: Return error, NPC must skip turn
+```
+
+### **Tool Specifications**
+
+*(See detailed tool specs from earlier in conversation - include full parameter tables here)*
+
+**Shared Tools:**
+- `move_to(room)`
+- `talk_request(target)`
+- `accept_talk()` / `reject_talk()`
+- `skip_turn()`
+
+**Kevin-Exclusive:**
+- `request_anna(action)`
+
+**Anna-Exclusive:**
+- `accept_request()` / `reject_request()`
+- `cook(food)`
+- `clean_living_room()`
+- `unlock_room(room)`
+- `make_guess(task_description)`
+
+### **Talk Sessions**
+
+When both NPCs accept a talk request:
+
+1. **Talking Session Activated**
+   - Special mode: NPCs exchange dialogue without other actions
+   - Maximum 3 exchanges per session
+   - Either NPC can end conversation early
+
+2. **Exchange Structure**
+   ```
+   Turn 1: Kevin speaks → Anna speaks
+   Turn 2: Kevin speaks → Anna speaks  
+   Turn 3: Kevin speaks → Anna speaks
+   [Session ends]
+   ```
+
+3. **Post-Session**
+   - Both NPCs prompted: "Summarize what you talked about and what you think of the conversation"
+   - Responses logged as episodes
+   - NPCs return to normal turn structure
+
+### **Memory Formation**
+
+**Episodic Memory:**
+- Formed immediately after every action
+- Structure: "Turn X: [Actor] did [action] resulting in [outcome]"
+- Stored in `episodes` table
+- Retrieved: Last 6 episodes included in next turn's prompt
+
+**Example Episodes:**
+```
+Turn 3: Kevin moved to kitchen
+Turn 4: Anna rejected Kevin's request to cook bacon
+Turn 5: Kevin requested talk with Anna
+Turn 6: Anna accepted talk request
+```
+
+**Semantic Memory:**
+- Formed through reflection prompts
+- Structure: Belief statements about self, others, world
+- Stored in `semantic_memory` table with scope/subject tags
+- Retrieved: Last 10 semantic memories included in prompt
+
+**Example Semantics:**
+```
+Scope: other_npc, Subject: anna
+Content: "Anna seems unwilling to cook when I ask directly"
+
+Scope: self, Subject: strategy  
+Content: "I should avoid making obvious requests that reveal my tasks"
+
+Scope: world, Subject: rules
+Content: "Anna must unlock her room before I can enter"
+```
+
+### **Reflection Mechanics**
+
+**Trigger:** Every 5 turns (Turn 5, 10, 15, 20, 25)
+
+**Process:**
+1. Retrieve last 5 episodes for NPC
+2. Present episodes to NPC with reflection prompts
+3. NPC generates insights
+4. Store insights as semantic memories
+
+**Reflection Prompts:**
+1. "What is the most interesting new finding given the above information?"
+2. "What new insights have you gained?"
+3. "What information could help you achieve your goals?"
+
+**Implementation:**
+```python
+def run_reflection(npc_session, db_conn, session_id, turn_id):
+    episodes = get_recent_episodes(db_conn, session_id, npc_session.npc_id, limit=5)
+    
+    for prompt in REFLECTION_PROMPTS:
+        reflection_turn = build_reflection_turn(
+            prompt=prompt,
+            episodes=episodes,
+            no_tools=True  # Reflection is thought-only
+        )
+        
+        result = npc_session.run_turn(reflection_turn)
+        
+        add_semantic_memory(
+            db_conn,
+            session_id=session_id,
+            npc_id=npc_session.npc_id,
+            turn_id=turn_id,
+            scope="self",
+            subject="reflection",
+            content=result.assistant_reply
+        )
+```
+
+---
+
+## **8. Technical Architecture**
+
+### **System Layers**
+
+*(Include the architecture diagram from earlier)*
+
+### **Data Models**
+
+*(Include WorldState, NPCState, Event schemas)*
+
+### **Database Schema**
+
+*(Include the complete SQL schema from db.py)*
+
+### **NPCFramework Integration**
+
+**How MicroBB Uses NPCFramework:**
+
+1. **Session Management**
+   ```python
+   engine = Engine(EngineConfig(...))
+   kevin = Session(engine=engine, npc_dir="kevin.npc")
+   anna = Session(engine=engine, npc_dir="anna.npc")
+   ```
+
+2. **Turn Execution**
+   ```python
+   turn_input = build_turn(
+       user_input="What do you do?",
+       perception_facts=env.get_observation("kevin"),
+       available_tools=env.get_allowed_actions("kevin"),
+       tool_handlers=tool_handler_dict,
+       episodic_memory=recent_episodes,
+       semantic_memory=recent_beliefs
+   )
+   
+   result = kevin.run_turn(turn_input)
+   ```
+
+3. **Tool Execution Flow**
+   - NPCFramework parses tool calls from LLM output
+   - Looks up handler in `tool_handlers` dict
+   - Executes handler with environment context
+   - Returns result to continue inference or finalize turn
+
+---
+
+## **9. User Interface**
+
+### **Terminal UI Design**
+
+*(Include the Dwarf Fortress-style mockup from earlier conversation)*
+
+### **Layout Specifications**
+
+**Screen Divided Into Panels:**
+
+1. **Header** (1 line)
+   - Session info, current turn, time elapsed
+
+2. **House Layout** (left side, ~20 cols)
+   - ASCII map showing rooms and NPC positions
+   - Live updates as NPCs move
+
+3. **Current Turn Panel** (center-top, ~60 cols)
+   - Active NPC name and location
+   - Perception facts
+   - Available actions enumerated
+   - Thinking indicator during inference
+   - Action result display
+
+4. **Task/Resource Panels** (left-bottom)
+   - Kevin's checklist (☐/☑)
+   - Anna's guesses remaining
+   - Request/reject counters
+
+5. **Event Log** (right side, ~40 cols, scrolling)
+   - Chronological list of all actions
+   - Color-coded by NPC
+   - Shows both actions and dialogue
+
+6. **Footer** (1 line)
+   - Controls: [Space] Next Turn, [P] Pause, [S] Save, [Q] Quit
+
+### **Controls**
+
+**Keyboard Input:**
+- **Space** - Advance to next turn (if paused)
+- **P** - Pause/Unpause auto-advance
+- **A** - Toggle auto-advance speed (1x, 2x, 5x, instant)
+- **R** - Manual reflection trigger (debug)
+- **S** - Save current state
+- **L** - Load saved state
+- **Q** - Quit to menu
+- **D** - Toggle debug panel (shows memory retrieval)
+
+### **User Experience Goals**
+
+1. **Immediate Comprehension** - First-time viewers understand what's happening within 30 seconds
+2. **Engaging to Watch** - Interesting even without interaction (suitable for streaming/recording)
+3. **Debuggable** - Developer can diagnose issues from UI alone
+4. **Performant** - UI updates don't slow down inference
+5. **Replayable** - Can load and watch saved sessions at different speeds
+
+---
+
+## **10. Development Tools**
+
+*(Include Engine, Programming Language, Art Tools sections adapted from the Water Ring Toss format)*
+
+---
+
+## **11. Art and Audio**
+
+### **Visual Style**
+
+**Terminal Aesthetic:**
+- Monospaced font (DejaVu Sans Mono or similar)
+- ANSI color codes for highlighting
+- Box-drawing characters for panels
+- Minimalist icons (◆ for Kevin, ● for Anna)
+
+**Color Palette:**
+```
+Kevin:  Cyan/Blue tones
+Anna:   Magenta/Purple tones
+Events: Yellow
+Errors: Red
+System: Gray
+```
+
+### **Character Design**
+
+Since this is terminal-only, "design" means:
+- Single-character or emoji representation on map
+- Consistent color association
+- Name display in panels
+
+**Future 3D/GUI Version Could Use:**
+- Low-poly character models
+- Simple avatar portraits
+- Pixel art sprites
+
+### **Sound Design**
+
+**V1.0: No Audio**
+
+**V1.1 Stretch Goals:**
+- Soft ambient background music
+- Typewriter sound for text appearance
+- Notification chimes for turn completion
+- Voice synthesis for NPC dialogue (optional)
+
+---
+
+## **12. Team and Roles**
+
+**V1.0 Solo Development:**
+- **Jave Allan Orcajada** - All roles
+
+**V2.0 Potential Expansion:**
+- Lead Developer / Systems Architect
+- UI/UX Designer (if moving beyond terminal)
+- 3D Artist (if adding graphical mode)
+- Audio Designer
+- QA / Playtester coordinator
+
+---
+
+## **13. Development Timeline**
+
+### **Milestones**
+
+**Phase 1: Core Infrastructure** (Week 1-2)
+- Orchestrator implementation
+- NPCFramework integration
+- Tool execution pipeline
+- Basic event logging
+
+**Phase 2: Memory Systems** (Week 3)
+- Episode formation
+- Semantic memory storage
+- Reflection system
+- Memory retrieval in prompts
+
+**Phase 3: Game Mechanics** (Week 4)
+- Task tracking
+- Guess validation
+- Win condition checking
+- Talk sessions
+- Resource management
+
+**Phase 4: Terminal UI** (Week 5)
+- Rich library integration
+- Panel layout
+- Real-time updates
+- Controls and navigation
+
+**Phase 5: Polish & Demo** (Week 6-7)
+- Bug fixes
+- Performance optimization
+- Recording setup
+- Documentation
+- Demo video production
+
+### **Task Breakdown**
+
+*(Detailed checklist from earlier in conversation)*
+
+### **Release Schedule**
+
+**Alpha (Internal):** End of Week 4
+**Beta (Private Testing):** End of Week 6  
+**Public Demo Release:** End of Week 7
+**Full v1.0 Release:** End of Week 8
+
+---
+
+## **14. Appendices**
+
+### **Appendix A: Complete Tool Reference**
+
+*(Full tool specification tables)*
+
+### **Appendix B: Database Schema Reference**
+
+*(Complete SQL with indices and relationships)*
+
+### **Appendix C: Example Turn Flow**
+
+*(Step-by-step walkthrough of one complete turn cycle)*
+
+### **Appendix D: .npc File Format Specification**
+
+*(YAML structure documentation)*
+
+### **Appendix E: Glossary**
+
+- **Episode** - A recorded event from an NPC's experience
+- **Semantic Memory** - A belief or learned fact
+- **Reflection** - Process of converting episodes to semantics
+- **Turn** - One action cycle for one NPC
+- **Session** - Complete 25-turn game
+- **Tool** - An action available to an NPC
+
+---
+
+**END OF DOCUMENT**
+
+---
+
+Want me to generate this as an actual formatted PDF with that toy-game aesthetic (colored headers, clean typography, diagrams)?

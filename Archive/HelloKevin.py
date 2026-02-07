@@ -84,7 +84,10 @@ def main() -> int:
 
     # ---- Paths ----
     npc_dir = r"C:\Users\Nitro\Desktop\NPCFramework\npc\kevin.npc"
-    model_path = r"C:\Users\Nitro\Desktop\NPCFramework\npcframework\inference\models\gemma-3-4b-it-q4_0.gguf"
+    # model_path = r"C:\Users\Nitro\Desktop\NPCFramework\npcframework\inference\models\gemma-3-4b-it-q4_0.gguf"
+    # model_path = r"C:\Users\Nitro\Desktop\NPCFramework\npcframework\inference\models\gemma-3-12b-it-q4_0.gguf"
+    # model_path = r"C:\Users\Nitro\Desktop\NPCFramework\npcframework\inference\models\gemma-3-270m-it-F16.gguf"
+    model_path = r"C:\Users\Nitro\Desktop\NPCFramework\npcframework\inference\models\Meta-Llama-3-8B-Instruct.Q4_K_M.gguf"
 
     # ---- Engine (create once) ----
     engine = Engine(
