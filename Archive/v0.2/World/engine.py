@@ -1,13 +1,17 @@
 # World/engine.py
 from __future__ import annotations
 
-from dataclasses import replace
-from typing import Dict, List, Tuple, Any
+from dataclasses import dataclass, replace
+from typing import Dict, List, Tuple
 
 from World.house import House
 from World.state import WorldState
-from World.events import Event, new_event
-from World.results import ToolResult
+
+@dataclass(frozen=True)
+class Result:
+    ok: bool
+    message: str
+
 
 # ----------------------------
 # Small helpers (keep the file sane)
@@ -31,11 +35,6 @@ def _with_state(
     turn_order: List[str] | None = None,
     turn_index: int | None = None,
     actors=None,
-    events=None,
-    tasks=None,
-    interactions=None,
-    next_task_id: int | None = None,
-    next_interaction_id: int | None = None,
 ) -> WorldState:
     """
     Canonical way to copy/update WorldState without forgetting fields.
@@ -55,16 +54,6 @@ def _with_state(
         kwargs["turn_index"] = turn_index
     if actors is not None:
         kwargs["actors"] = actors
-    if events is not None:
-        kwargs["events"] = events
-    if tasks is not None:
-        kwargs["tasks"] = tasks
-    if interactions is not None:
-        kwargs["interactions"] = interactions
-    if next_task_id is not None:
-        kwargs["next_task_id"] = next_task_id
-    if next_interaction_id is not None:
-        kwargs["next_interaction_id"] = next_interaction_id
 
     try:
         return replace(state, **kwargs)
@@ -77,26 +66,7 @@ def _with_state(
             turn_order=kwargs.get("turn_order", _get_turn_order(state)),
             turn_index=kwargs.get("turn_index", _get_turn_index(state)),
             actors=kwargs.get("actors", getattr(state, "actors", {})),
-            events=kwargs.get("events", getattr(state, "events", tuple())),
-            tasks=kwargs.get("tasks", getattr(state, "tasks", {})),
-            interactions=kwargs.get("interactions", getattr(state, "interactions", {})),
-            next_task_id=kwargs.get("next_task_id", getattr(state, "next_task_id", 1)),
-            next_interaction_id=kwargs.get("next_interaction_id", getattr(state, "next_interaction_id", 1)),
         )
-
-
-
-
-
-def append_events(state: WorldState, events: Tuple[Event, ...]) -> WorldState:
-    if not events:
-        return state
-    existing = tuple(getattr(state, "events", tuple()) or tuple())
-    return _with_state(state, events=existing + tuple(events))
-
-def emit(state: WorldState, *, actor: str, type: str, args: Dict[str, Any] | None = None, ok: bool = True, message: str = "") -> Tuple[WorldState, Event]:
-    ev = new_event(turn=state.turn, actor=actor, type=type, args=args, ok=ok, message=message)
-    return append_events(state, (ev,)), ev
 
 
 # ----------------------------
@@ -188,73 +158,67 @@ def advance_turn(state: WorldState) -> WorldState:
 # Actions
 # ----------------------------
 
-def apply_move(house: House, state: WorldState, who: str, dst: str) -> Tuple[WorldState, ToolResult]:
+def apply_move(house: House, state: WorldState, who: str, dst: str) -> Tuple[WorldState, Result]:
     src = state.locations.get(who)
     if src is None:
-        return state, ToolResult(False, f"Unknown entity: {who}")
+        return state, Result(False, f"Unknown entity: {who}")
 
     if dst not in house.rooms:
-        return state, ToolResult(False, f"Unknown room: {dst}")
+        return state, Result(False, f"Unknown room: {dst}")
 
     if dst == src:
-        return state, ToolResult(False, f"Invalid move: {src} -> {dst} is not allowed.")
+        return state, Result(False, f"Invalid move: {src} -> {dst} is not allowed.")
 
     if dst not in house.edges.get(src, set()):
-        return state, ToolResult(False, f"Blocked: {src} -> {dst}")
+        return state, Result(False, f"Blocked: {src} -> {dst}")
 
     if not can_enter_room(state, who, dst):
-        return state, ToolResult(False, f"Locked: cannot enter {dst}")
+        return state, Result(False, f"Locked: cannot enter {dst}")
 
     new_locations = dict(state.locations)
     new_locations[who] = dst
 
     new_state = _with_state(state, locations=new_locations)
-    # emit event before advancing turn
-    new_state, ev = emit(new_state, actor=who, type="move", args={"src": src, "dst": dst}, ok=True, message=f"moved {src} -> {dst}")
-    # Turn advancement is handled by the toolbox invocation pipeline.
-    return new_state, ToolResult(True, f"OK: {who} moved to {dst}.", events=(ev,))
+    return advance_turn(new_state), Result(True, f"OK: {who} moved to {dst}.")
 
 
-def end_turn(state: WorldState, who: str) -> Tuple[WorldState, ToolResult]:
+def end_turn(state: WorldState) -> Tuple[WorldState, Result]:
     """
     Manual skip. Advances to next actor. Round increases only on wrap.
     """
-    state, ev = emit(state, actor=who, type="end_turn", args={}, ok=True, message="ended turn")
     new_state = advance_turn(state)
-    return new_state, ToolResult(True, f"Turn advanced to {new_state.turn}.", events=(ev,), consume_turn=False)
+    return new_state, Result(True, f"Turn advanced to {new_state.turn}.")
 
 
-def unlock_room(house: House, state: WorldState, who: str, room_id: str) -> Tuple[WorldState, ToolResult]:
+def unlock_room(house: House, state: WorldState, who: str, room_id: str) -> Tuple[WorldState, Result]:
     locked = _get_locked(state)
     if room_id not in locked:
-        return state, ToolResult(False, f"No lock state for room: {room_id}")
+        return state, Result(False, f"No lock state for room: {room_id}")
 
     ok, msg = can_toggle_lock(house, state, who, room_id)
     if not ok:
-        return state, ToolResult(False, msg)
+        return state, Result(False, msg)
 
     if not locked.get(room_id, False):
-        return state, ToolResult(False, f"Already unlocked: {room_id}")
+        return state, Result(False, f"Already unlocked: {room_id}")
 
     locked[room_id] = False
     new_state = _with_state(state, room_locked=locked)
-    new_state, ev = emit(new_state, actor=who, type="unlock_room", args={"room_id": room_id}, ok=True, message=f"unlocked {room_id}")
-    return new_state, ToolResult(True, f"OK: {who} unlocked {room_id}.", events=(ev,))
+    return advance_turn(new_state), Result(True, f"OK: {who} unlocked {room_id}.")
 
 
-def lock_room(house: House, state: WorldState, who: str, room_id: str) -> Tuple[WorldState, ToolResult]:
+def lock_room(house: House, state: WorldState, who: str, room_id: str) -> Tuple[WorldState, Result]:
     locked = _get_locked(state)
     if room_id not in locked:
-        return state, ToolResult(False, f"No lock state for room: {room_id}")
+        return state, Result(False, f"No lock state for room: {room_id}")
 
     ok, msg = can_toggle_lock(house, state, who, room_id)
     if not ok:
-        return state, ToolResult(False, msg)
+        return state, Result(False, msg)
 
     if locked.get(room_id, False):
-        return state, ToolResult(False, f"Already locked: {room_id}")
+        return state, Result(False, f"Already locked: {room_id}")
 
     locked[room_id] = True
     new_state = _with_state(state, room_locked=locked)
-    new_state, ev = emit(new_state, actor=who, type="lock_room", args={"room_id": room_id}, ok=True, message=f"locked {room_id}")
-    return new_state, ToolResult(True, f"OK: {who} locked {room_id}.", events=(ev,))
+    return advance_turn(new_state), Result(True, f"OK: {who} locked {room_id}.")

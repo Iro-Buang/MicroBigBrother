@@ -1,35 +1,20 @@
 # World/state.py
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from NPC.actors import Actor
-from World.events import Event
-from World.tasks import TaskInstance
-from World.interactions import Interaction
 
 @dataclass(frozen=True)
 class WorldState:
-    # Core world
     locations: Dict[str, str]                      # entity_id -> room_id (canonical)
     turn: int = 0                                  # round index
     room_locked: Dict[str, bool] = field(default_factory=dict)
 
-    # Turn system
     turn_order: List[str] = field(default_factory=list)
     turn_index: int = 0
 
-    # Actors metadata
     actors: Dict[str, Actor] = field(default_factory=dict)  # entity_id -> Actor metadata
-
-    # v0.3: state trackers
-    events: Tuple[Event, ...] = field(default_factory=tuple)
-    tasks: Dict[str, TaskInstance] = field(default_factory=dict)
-    interactions: Dict[str, Interaction] = field(default_factory=dict)
-
-    # deterministic id counters (keeps debug sane)
-    next_task_id: int = 1
-    next_interaction_id: int = 1
 
 
 def current_actor(state: WorldState) -> str:
@@ -48,8 +33,8 @@ def make_initial_state() -> WorldState:
     return WorldState(
         locations={
             # "player": "living_room",
-            "kevin": "living_room",
-            "anna": "living_room",
+            "kevin": "kevin_room",
+            "anna": "anna_room",
         },
         turn=0,
         room_locked={
@@ -59,9 +44,4 @@ def make_initial_state() -> WorldState:
         turn_order=["kevin", "anna"],
         turn_index=0,
         actors=actors,
-        events=tuple(),
-        tasks={},
-        interactions={},
-        next_task_id=1,
-        next_interaction_id=1,
     )

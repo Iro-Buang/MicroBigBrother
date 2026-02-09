@@ -2,9 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Tuple
 
-from World.results import ToolResult
-from World.engine import advance_turn
-from World.interaction_engine import auto_decline_pending_talks
+from World.engine import Result
 from World.Tools.base import ActionContext, Tool
 from World.Tools.spec import ToolSpec
 
@@ -29,26 +27,14 @@ class ToolRegistry:
         return specs
 
 
-    def invoke(self, tool_name: str, ctx: ActionContext, args: Dict[str, Any]) -> Tuple[ActionContext, ToolResult]:
+    def invoke(self, tool_name: str, ctx: ActionContext, args: Dict[str, Any]) -> Tuple[ActionContext, Result]:
         tool = self.tools.get(tool_name)
         if not tool:
-            return ctx, ToolResult(False, f"Unknown tool: {tool_name}")
+            return ctx, Result(False, f"Unknown tool: {tool_name}")
 
         ok, msg = tool.can_run(ctx, args)
         if not ok:
-            return ctx, ToolResult(False, msg)
-
-        # "Decay" mechanic: if you have pending talk requests directed at you,
-        # and you do anything OTHER than accept/decline, they auto-decline.
-        if tool_name not in ("talk_accept", "talk_decline"):
-            new_state, _evs = auto_decline_pending_talks(ctx.state, target=ctx.actor, reason="decay")
-            ctx = ActionContext(house=ctx.house, state=new_state, actor=ctx.actor)
+            return ctx, Result(False, msg)
 
         new_state, res = tool.run(ctx, args)
-
-        # Centralized turn consumption. Most tools consume a turn; some (talk accept/decline, talk say/end)
-        # do not. Tools that already advance (end_turn) should return consume_turn=False.
-        if res.ok and getattr(res, "consume_turn", True):
-            new_state = advance_turn(new_state)
-
         return ActionContext(house=ctx.house, state=new_state, actor=ctx.actor), res

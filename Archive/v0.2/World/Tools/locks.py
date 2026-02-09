@@ -1,11 +1,9 @@
 from __future__ import annotations
 from typing import Any, Dict, Tuple
 
-from World.engine import lock_room, unlock_room
-from World.results import ToolResult
+from World.engine import lock_room, unlock_room, Result
 from World.Tools.base import ActionContext
 from World.Tools.spec import ToolSpec
-from World.interactions import active_talk_id
 from World.engine import room_owner
 from World.Tools.tool_validators import room_exists, actor_exists, owns_room, in_or_adjacent
 
@@ -27,7 +25,7 @@ def _toggleable_rooms(ctx: ActionContext, *, want_locked: bool) -> list[str]:
 
     for room_id in state.room_locked.keys():
         # must own the room
-        if room_owner(state, room_id) != actor:
+        if room_owner(room_id) != actor:
             continue
 
         # must be inside or adjacent
@@ -57,7 +55,7 @@ class LockRoomTool:
         args_schema={
             "room_id": "Room you own that is currently unlocked."
         },
-        visible=lambda ctx: (active_talk_id(ctx.state, ctx.actor) is None) and (len(_toggleable_rooms(ctx, want_locked=False)) > 0),
+        visible=lambda ctx: len(_toggleable_rooms(ctx, want_locked=False)) > 0,
         choices=_choices.__func__,
     )
 
@@ -80,7 +78,7 @@ class LockRoomTool:
             fn, params = gate
             ok, msg = fn(*params)
             if not ok:
-                return ctx.state, ToolResult(False, msg)
+                return ctx.state, Result(False, msg)
 
         return lock_room(ctx.house, ctx.state, ctx.actor, room_id)
 
@@ -98,7 +96,7 @@ class UnlockRoomTool:
         args_schema={
             "room_id": "Room you own that is currently locked."
         },
-        visible=lambda ctx: (active_talk_id(ctx.state, ctx.actor) is None) and (len(_toggleable_rooms(ctx, want_locked=True)) > 0),
+        visible=lambda ctx: len(_toggleable_rooms(ctx, want_locked=True)) > 0,
         choices=_choices.__func__,
     )
 
@@ -121,6 +119,6 @@ class UnlockRoomTool:
             fn, params = gate
             ok, msg = fn(*params)
             if not ok:
-                return ctx.state, ToolResult(False, msg)
+                return ctx.state, Result(False, msg)
 
         return unlock_room(ctx.house, ctx.state, ctx.actor, room_id)

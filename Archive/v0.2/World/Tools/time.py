@@ -19,4 +19,4 @@ class EndTurnTool:
         return True, "OK"
 
     def run(self, ctx: ActionContext, args: Dict[str, Any]):
-        return end_turn(ctx.state, ctx.actor)
+        return end_turn(ctx.state)

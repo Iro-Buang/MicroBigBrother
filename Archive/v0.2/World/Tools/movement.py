@@ -4,7 +4,6 @@ from typing import Any, Dict, Tuple
 from World.engine import apply_move, can_enter_room
 from World.Tools.base import ActionContext
 from World.Tools.spec import ToolSpec
-from World.interactions import active_talk_id
 
 class MoveToTool:
     name = "move_to"
@@ -28,7 +27,7 @@ class MoveToTool:
         args_schema={
             "dst": "Destination room id (must be adjacent and unlocked)."
         },
-        visible=lambda ctx: active_talk_id(ctx.state, ctx.actor) is None,
+        visible=lambda ctx: True,
         choices=_choices.__func__,  # staticmethod -> function
     )
 

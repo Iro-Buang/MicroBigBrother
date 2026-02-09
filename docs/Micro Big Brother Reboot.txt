@@ -1,0 +1,76 @@
+Micro Big Brother Reboot
+NPCFRamework Demo
+
+What Happened:
+	- Context Drift. Forgot what MicroBigBrother is about and what should MicroBigBrother be.
+	- Technical Skill Decay - Forgot how to use NPCFramework and lost almost all technical context
+	- Life Events - Financial pressure, migration to new apartment, school and family drama, holiday events, workplace pressure.
+	- Note - It Only took 1 month of being off the game to degrade here. Must update better.
+
+Where Have I Left Off
+	- NPCFramework v0.0.7
+	- Basic Tooling
+	- Basic "Simulation Engine" for MicroBigBrother
+	- HelloKevin as the introduction to the framework
+	- OOP Architecture for the "NPC", "House", "Events", "Tools", memory and event handling
+
+What's Salvageable for the reboot?
+	- HelloKevin.py
+	- Simulation Engine Architecture
+	- Basic Database Schema
+	- NPCFramework
+
+What's Lacking
+	- Integration if tool calls affecting the "Simulation Environment"
+	- Revamped Memory Architecture
+	- Integration of NPC Into the simulation space using NPCFramework.
+	- Revamped Event Logging
+	- Improved Function Calls in tools
+
+What active bugs are found?
+	- NPCFramework - The model config declaration is confusing, not sure where to go to declare the variable path of the model to be used
+	- NPCFramework - Memory needs better handling in episodic/working memories
+
+What are "Nice to Haves"?
+	- UI - Something resembling dwarf fortress is good enough
+	- Finalized memory system for NPCFramework
+	- Documentation - Project plan, changelogs, etc.
+
+Wuat are the new information that got funneled in during downtime?
+	- Clawdbook/Clawd/OpenClawd - Need to look more into this.
+
+Upcoming Events/Blockers that may cause interruptions
+	- Valentines day holidays support (Feb 12-13)
+	- Aunt Belen 60th birthday part (Feb 14)
+	- Iro Buang birthday party (March 22)
+
+Approach Plan
+	- Deadline (Feb 28 - Final Call of Output - Soft deadline)
+	- March 15 - Hard Launch + Marketing
+	- Channels
+		- Reddit
+		- Facebook
+		- GitHub
+	- Documentation/Showcase
+		- YouTube
+		- Tutorial sets
+		- How-to projects using MicroBigBrother
+	- Marketing Strategy
+		- Open-source everything
+		- Document everything
+		- Ideally it should run on the cloud and virtual private servers/compute because i dont have a spare pc to test if it works on other machines
+		- Definitely needs UI other than CLI.
+
+Technical Step-by-Step Approach
+
+	Step 1 - Build House/Structure/Layout	
+	Step 2 - Make a character object
+	Step 3 - Make Character Interact with the house
+	Step 4 - Make the character able to do tasks/ harden permission systems, etc.
+	Step 5 - Implement Character to character interaction mechanics (Talking, Guessing, Asking Favors, etc).
+	Step 6 - Add NPCFramework cognition layer. Sensory inputs, personality files, NPCFramework integrate with character object
+	Step 7 - Add Memory Logging, Perception filters prompt feed.
+	Step 8 - Make Multi-turn interaction with Kevin and player (dev)
+	Step 9 - Add in Anna
+	Step 10 - Refinement
+	Step 11 - UI Visualization

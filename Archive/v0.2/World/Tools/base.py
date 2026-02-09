@@ -4,7 +4,7 @@ from typing import Any, Dict, Protocol, Tuple
 
 from World.house import House
 from World.state import WorldState
-from World.results import ToolResult
+from World.engine import Result  # reuse your Result dataclass
 from World.Tools.spec import ToolSpec
 
 @dataclass(frozen=True)
@@ -20,5 +20,5 @@ class Tool(Protocol):
     def can_run(self, ctx: ActionContext, args: Dict[str, Any]) -> Tuple[bool, str]:
         ...
 
-    def run(self, ctx: ActionContext, args: Dict[str, Any]) -> Tuple[WorldState, ToolResult]:
+    def run(self, ctx: ActionContext, args: Dict[str, Any]) -> Tuple[WorldState, Result]:
         ...
