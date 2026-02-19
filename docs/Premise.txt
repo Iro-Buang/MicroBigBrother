@@ -1,0 +1,10 @@
+Premise
+	- What Happened?
+	- Where Have We Left Off?
+	- What's Salvageable?
+	- What's Lacking?
+	- What are the active bugs found?
+	- What are nice to haves?
+	- What are the new information that got funneled in?
+	- What are upcoming events/blockers that might cause disruptions?
+	- What's the next approach?

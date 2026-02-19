@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Tuple, Any
+from collections import deque
 
+import yaml
 from npcframework.api import Engine, Session, RuntimeConfig
 from npcframework.npcframework_types import EngineConfig, TurnInput
 from npcframework.tools.builtin import builtin_toolset
@@ -37,37 +39,284 @@ class Tooling:
 
 
 # -----------------------------
-# Turn builder (single source of truth)
+# Turn builder (single source o
 # -----------------------------
+# Prompt composition (MicroBB)
+# -----------------------------
+
+_WORKING_MEMORY: deque[str] = deque(maxlen=5)
+_CACHED_YAML: Dict[str, Any] = {}
+
+def _project_root() -> Path:
+    # HelloKevin.py lives in "LLM Engine/"; project root is its parent.
+    return Path(__file__).resolve().parents[1]
+
+def _load_yaml(path: Path) -> dict:
+    key = str(path.resolve())
+    if key in _CACHED_YAML:
+        return _CACHED_YAML[key]
+    if not path.exists():
+        data = {}
+    else:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    _CACHED_YAML[key] = data
+    return data
+
+def load_world_prompt_config() -> dict:
+    """World-level prompt config stored under /World."""
+    cfg_path = _project_root() / "World" / "world_prompt_config.yaml"
+    return _load_yaml(cfg_path)
+
+def load_transient_goals() -> dict:
+    """Actor transient goals stored under /LLM Engine."""
+    goals_path = _project_root() / "LLM Engine" / "transient_goals.yaml"
+    return _load_yaml(goals_path)
+
+def format_working_memory(lines: List[str]) -> List[str]:
+    if not lines:
+        return ["Working memory (last 5 turns): (none)"]
+    out = ["Working memory (last 5 turns):"]
+    out.extend([f"- {x}" for x in lines[-5:]])
+    return out
+
+def push_working_memory(line: str) -> None:
+    if line:
+        _WORKING_MEMORY.append(line)
+
+def _summarize_last_events(state: Any, n: int = 5) -> List[str]:
+    events = list(getattr(state, "events", []) or [])
+    tail = events[-n:]
+    out: List[str] = []
+    for ev in tail:
+        turn = getattr(ev, "turn", "?")
+        actor = getattr(ev, "actor", "?")
+        typ = getattr(ev, "type", "?")
+        msg = getattr(ev, "message", "") or ""
+        out.append(f"t={turn} {actor}: {typ} — {msg}".strip())
+    return out
+
+def _needed_tasks_for_actor(*, actor: str, house: Any, state: Any) -> List[str]:
+    """Very small v0.4 'what needs doing' helper (one-time tasks)."""
+    completed = set(getattr(state, "completed_tasks", frozenset()) or frozenset())
+    loc = (getattr(state, "locations", {}) or {}).get(actor)
+    needed: List[str] = []
+
+    # Location-gated tasks
+    if loc == "living_room" and "clean_living_room" not in completed:
+        needed.append("clean_living_room (living_room)")
+    if loc == "kitchen" and "wash_dishes" not in completed:
+        needed.append("wash_dishes (kitchen)")
+
+    # Cooking variants (only in kitchen)
+    if loc == "kitchen":
+        for food in ("egg", "bacon", "hotdog"):
+            tid = f"cook:{food}"
+            if tid not in completed:
+                needed.append(f"cook {food} (kitchen)")
+
+    return needed
+
+def build_perception_facts(
+    *,
+    actor_id: str,
+    house: Any | None = None,
+    state: Any | None = None,
+    toolbox: Any | None = None,
+) -> List[str]:
+    """Compose perception_facts: room details, adjacent rooms, needed tasks."""
+    facts: List[str] = []
+
+    if house is not None and state is not None:
+        try:
+            from World.perception import render_look
+            look = render_look(house, state, actor_id)
+            # render_look already includes room desc, objects, movable spaces, occupants.
+            facts.extend([x.strip() for x in look.splitlines() if x.strip()])
+        except Exception:
+            # Keep it resilient; perception shouldn't crash the turn.
+            loc = (getattr(state, "locations", {}) or {}).get(actor_id, "(unknown)")
+            facts.append(f"Location: {loc}")
+
+        # Adjacent rooms (explicit)
+        loc = (getattr(state, "locations", {}) or {}).get(actor_id)
+        if loc and getattr(house, "edges", None):
+            adj = sorted(list((house.edges or {}).get(loc, set()) or []))
+            facts.append("Rooms you can move into: " + (", ".join(adj) if adj else "(none)"))
+
+        # Tasks needed (based on location + completion flags)
+        needed = _needed_tasks_for_actor(actor=actor_id, house=house, state=state)
+        if needed:
+            facts.append("Tasks needed here:")
+            facts.extend([f"- {t}" for t in needed])
+        else:
+            facts.append("Tasks needed here: (none)")
+
+        # If toolbox exists, include currently available actions (useful for LLM tool selection)
+        if toolbox is not None:
+            try:
+                from World.Tools.base import ActionContext
+                ctx = ActionContext(house=house, state=state, actor=actor_id)
+                specs = toolbox.list_specs(ctx)
+                # Keep it compact: tool name only (args are in tool schema)
+                tool_names = [getattr(s, "name", "") for s in specs if getattr(s, "name", "")]
+                if tool_names:
+                    facts.append("Available actions right now: " + ", ".join(sorted(set(tool_names))))
+            except Exception:
+                pass
+
+    else:
+        # Fallback if you haven't wired the environment yet
+        facts.append("Room details: (not connected to MicroBB world state yet)")
+        facts.append("Rooms you can move into: (unknown)")
+        facts.append("Tasks needed here: (unknown)")
+    return facts
+
+
+# -----------------------------
+# Composer bundle + preview
+# -----------------------------
+
+def build_working_memory(*, state: Any | None = None, n: int = 5) -> List[str]:
+    """Working memory summary of last N turns (from events if available, else local buffer)."""
+    if state is not None:
+        return _summarize_last_events(state, n=n)
+    return list(_WORKING_MEMORY)[-n:]
+
+
+def compose_prompt_fields(
+    *,
+    actor_id: str,
+    user_text: str,
+    available_tools: List[dict],
+    tool_handlers: Dict[str, Callable[..., Any]] | None = None,
+    house: Any | None = None,
+    state: Any | None = None,
+    toolbox: Any | None = None,
+) -> Dict[str, Any]:
+    """Compose all sections that will be fed into NPCFramework for a given actor turn.
+
+    Returns a plain dict so callers (e.g., player_cli) can preview without instantiating TurnInput.
+    """
+    world_cfg = load_world_prompt_config()
+    goals_cfg = load_transient_goals()
+
+    environment_name = world_cfg.get("environment_name", "MicroBigBrother House")
+    environment_rules = list(world_cfg.get("environment_rules", []) or [])
+    environment_facts = list(world_cfg.get("environment_facts", []) or [])
+    identity_role_append = world_cfg.get("identity_role_append", "")
+    additional_policies = list(world_cfg.get("additional_policies", []) or [])
+
+    perception_facts = build_perception_facts(actor_id=actor_id, house=house, state=state, toolbox=toolbox)
+
+    transient_goals = list((goals_cfg.get(actor_id, {}) or {}).get("goals", []) or [])
+
+    working_memory = build_working_memory(state=state, n=5)
+
+    return {
+        "environment_name": environment_name,
+        "environment_rules": environment_rules,
+        "environment_facts": environment_facts,
+        "identity_role_append": identity_role_append,
+        "additional_policies": additional_policies,
+        "perception_facts": perception_facts,
+        "goals": transient_goals,
+        "working_memory": working_memory,
+        "recalled_contexts": [],  # blank for now
+        "semantic_memory": [],    # blank for now
+
+        # passthroughs
+        "user_input": user_text,
+        "available_tools": available_tools,
+        "tool_handlers": tool_handlers or {},
+    }
+
+
+def render_prompt_preview(bundle: Dict[str, Any]) -> str:
+    """Pretty print the composer output in the exact order expected by the operator."""
+    def _bullets(items: List[str]) -> str:
+        if not items:
+            return "(blank)"
+        return "\n".join([f"- {x}" for x in items])
+
+    out: List[str] = []
+    out.append("=== LLM Prompt Context (preview) ===")
+
+    out.append(f"\nenvironment_name\n{bundle.get('environment_name','')}")
+
+    out.append("\nenvironment_rules")
+    out.append(_bullets(list(bundle.get("environment_rules", []) or [])))
+
+    out.append("\nenvironment_facts")
+    out.append(_bullets(list(bundle.get("environment_facts", []) or [])))
+
+    out.append("\nidentity_role_append")
+    ira = (bundle.get("identity_role_append", "") or "").strip()
+    out.append(ira if ira else "(blank)")
+
+    out.append("\nadditional_policies")
+    out.append(_bullets(list(bundle.get("additional_policies", []) or [])))
+
+    out.append("\nperception_facts")
+    out.append(_bullets(list(bundle.get("perception_facts", []) or [])))
+
+    out.append("\ngoals")
+    out.append(_bullets(list(bundle.get("goals", []) or [])))
+
+    out.append("\nworking memory (last 5 turns)")
+    out.append(_bullets(list(bundle.get("working_memory", []) or [])))
+
+    out.append("\nrecalled_contexts")
+    out.append("(blank)")
+
+    out.append("\nsemantic_memory")
+    out.append("(blank)")
+
+    out.append("\n=== end preview ===")
+    return "\n".join(out) + "\n"
+
 
 def build_turn(
     user_text: str,
     *,
+    actor_id: str = "kevin",
     available_tools: List[dict],
     tool_handlers: Dict[str, Callable[..., Any]],
-    perception_facts: List[str] | None = None,
-    environment_facts: List[str] | None = None,
-    transient_goals: List[str] | None = None,
+    house: Any | None = None,
+    state: Any | None = None,
+    toolbox: Any | None = None,
 ) -> TurnInput:
     """
-    Build a TurnInput with MicroBB-ish scaffolding.
-    Keep this as the single source of truth for per-turn defaults.
+    Build a TurnInput with MicroBB composer fields.
 
-    Later: you can pass perception_facts/tools from your Environment layer.
+    Required sections (loaded/constructed per turn):
+      - environment_name
+      - environment_rules
+      - environment_facts
+      - identity_role_append
+      - additional_policies
+      - perception_facts (room/adjacent/tasks + working memory)
+      - goals (actor transient goals)
+      - recalled_contexts (blank for now)
+      - semantic_memory (blank for now)
     """
-    perception_facts = perception_facts or [
-        "You are in the living room.",
-        "There is a couch, a coffee table, and a wall-mounted TV.",
-    ]
+    
+    bundle = compose_prompt_fields(
+        actor_id=actor_id,
+        user_text=user_text,
+        available_tools=available_tools,
+        tool_handlers=tool_handlers,
+        house=house,
+        state=state,
+        toolbox=toolbox,
+    )
 
-    environment_facts = environment_facts or [
-        "You are inside the MicroBigBrother house simulation.",
-    ]
-
-    transient_goals = transient_goals or [
-        "Avoid rule-breaking and tool misuse.",
-        "If the user asks for time/date/math, you MUST use tools; do not guess.",
-    ]
+    # NPCFramework TurnInput doesn't have a dedicated working_memory field, so we append it
+    # into perception_facts as an explicit block the model can read.
+    wm_lines = list(bundle.get("working_memory", []) or [])
+    if wm_lines:
+        bundle["perception_facts"] = list(bundle.get("perception_facts", []) or []) + ["Working memory (last 5 turns):"] + [f"- {x}" for x in wm_lines]
+    else:
+        bundle["perception_facts"] = list(bundle.get("perception_facts", []) or []) + ["Working memory (last 5 turns): (none)"]
 
     return TurnInput(
         user_input=user_text,
@@ -80,40 +329,31 @@ def build_turn(
         tool_prompt_style="compact",
 
         # ---- ENVIRONMENT ----
-        environment_name="MicroBigBrother House",
-        environment_facts=environment_facts,
-        environment_rules=[
-            "Be consistent with your identity/persona/policy and the environment facts.",
-        ],
+        environment_name=bundle['environment_name'],
+        environment_facts=bundle['environment_facts'],
+        environment_rules=bundle['environment_rules'],
 
         # ---- PERCEPTION ----
-        perception_facts=perception_facts,
+        perception_facts=bundle['perception_facts'],
 
         # ---- GOALS ----
-        transient_goals=transient_goals,
+        transient_goals=bundle['goals'],
 
         # ---- MEMORY ----
-        semantic_memory=[
-            "I am Kevin. I respond dryly, pragmatic, and mildly sarcastic.",
-        ],
+        semantic_memory=[],  # leave blank for now
 
         # ---- POLICY ----
-        additional_policies=[],
+        additional_policies=bundle['additional_policies'],
 
         # ---- IDENTITY APPEND ----
-        identity_role_append="MicroBigBrother contestant; observed by an audience; evaluated for reliability.",
+        identity_role_append=bundle['identity_role_append'],
 
         # ---- STATE ----
         external_state={
-            "mode": "social",
-            "mood": "neutral",
-            "energy": 0.78,
+            "actor_id": actor_id,
         },
     )
-
-
-# -----------------------------
-# Construction helpers
+# on helpers
 # -----------------------------
 
 def make_engine(model_path: Path, s: ModelSettings) -> Engine:

@@ -1,7 +1,7 @@
 # World/state.py
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any, FrozenSet
 
 from NPC.actors import Actor
 from World.events import Event
@@ -14,6 +14,11 @@ class WorldState:
     locations: Dict[str, str]                      # entity_id -> room_id (canonical)
     turn: int = 0                                  # round index
     room_locked: Dict[str, bool] = field(default_factory=dict)
+
+    # Gameplay/task state
+    completed_tasks: FrozenSet[str] = field(default_factory=frozenset)   # one-time tasks completed (e.g. "cook:egg")
+    actor_counters: Dict[str, Dict[str, int]] = field(default_factory=dict)  # per-actor resources (guesses, rejects, requests)
+    actor_flags: Dict[str, Dict[str, Any]] = field(default_factory=dict)     # per-actor per-turn flags (reset on turn start)
 
     # Turn system
     turn_order: List[str] = field(default_factory=list)
@@ -45,6 +50,17 @@ def make_initial_state() -> WorldState:
         "anna": Actor(id="anna", display_name="Anna", kind="npc", owned_rooms={"anna_room"}),
     }
 
+    # Tunable gameplay parameters (kept in state for deterministic replays)
+    actor_counters = {
+        "kevin": {"requests_left": 9},
+        "anna": {"guesses_left": 1, "rejects_left": 3},
+    }
+    actor_flags = {
+        "kevin": {"cooked_this_turn": False},
+        "anna": {"cooked_this_turn": False},
+    }
+    completed_tasks = frozenset()
+
     return WorldState(
         locations={
             # "player": "living_room",
@@ -56,6 +72,9 @@ def make_initial_state() -> WorldState:
             "anna_room": True,
             "kevin_room": False,
         },
+        completed_tasks=completed_tasks,
+        actor_counters=actor_counters,
+        actor_flags=actor_flags,
         turn_order=["kevin", "anna"],
         turn_index=0,
         actors=actors,

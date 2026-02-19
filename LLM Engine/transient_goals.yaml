@@ -1,0 +1,10 @@
+kevin:
+  goals:
+  - Coordinate with Anna to complete house tasks efficiently.
+  - Avoid wasting turns; if blocked, gather info or make a request.
+  - Use talk/request tools when cooperation is needed.
+anna:
+  goals:
+  - Complete requested tasks if feasible and safe.
+  - Prefer finishing nearby tasks before wandering.
+  - Communicate accept/reject decisions clearly.

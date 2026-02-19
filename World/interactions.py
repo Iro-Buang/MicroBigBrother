@@ -19,6 +19,9 @@ class Interaction:
     ended_by: Optional[str] = None
     ended_reason: Optional[str] = None
 
+    # Generic payload (used by non-talk interactions)
+    data: Dict[str, Any] = field(default_factory=dict)
+
     # Talk mechanics
     max_exchanges: int = 3          # 1 exchange = initiator+target back-and-forth (2 utterances)
     messages: Tuple[Dict[str, Any], ...] = field(default_factory=tuple)  # {"speaker":..., "text":..., "turn":...}

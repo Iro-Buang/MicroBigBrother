@@ -30,6 +30,22 @@ def auto_decline_pending_talks(state: WorldState, *, target: str, reason: str = 
         state = replace(state, interactions=interactions)
     return state, tuple(evs)
 
+
+def auto_reject_pending_task_requests(state: WorldState, *, target: str, reason: str = "decay") -> Tuple[WorldState, Tuple]:
+    """Auto-reject all pending task requests directed at `target`."""
+    interactions = dict(getattr(state, "interactions", {}) or {})
+    evs = []
+    changed = False
+    for iid, inter in list(interactions.items()):
+        if inter.kind == "task_request" and inter.status == "pending" and inter.target == target:
+            interactions[iid] = replace(inter, status="declined", ended_by=target, ended_reason=reason, ended_turn=state.turn)
+            changed = True
+            state, ev = emit(state, actor=target, type="task_reject", args={"interaction_id": iid, "reason": reason, "auto": True}, ok=True, message=f"auto-rejected task ({reason})")
+            evs.append(ev)
+    if changed:
+        state = replace(state, interactions=interactions)
+    return state, tuple(evs)
+
 def _new_interaction_id(state: WorldState) -> Tuple[WorldState, str]:
     n = int(getattr(state, "next_interaction_id", 1) or 1)
     new_state = replace(state, next_interaction_id=n + 1)
@@ -48,6 +64,65 @@ def _close_interaction(state: WorldState, interaction_id: str, *, ended_by: str,
         ended_turn=state.turn,
     )
     return replace(state, interactions=interactions)
+
+
+# ----------------------------
+# Task request interactions (Kevin -> Anna)
+# ----------------------------
+
+def task_request(state: WorldState, *, initiator: str, target: str, room_id: str, tool_name: str, tool_args: Dict[str, Any]) -> Tuple[WorldState, ToolResult]:
+    if initiator == target:
+        return state, ToolResult(False, "Denied: you cannot request a task from yourself.")
+
+    # by design, Kevin can request Anna regardless of room; keep it simple
+    state, iid = _new_interaction_id(state)
+    inter = Interaction(
+        id=iid,
+        kind="task_request",
+        initiator=initiator,
+        target=target,
+        room_id=room_id,
+        status="pending",
+        created_turn=state.turn,
+        data={"tool": tool_name, "args": dict(tool_args or {})},
+    )
+    interactions = dict(getattr(state, "interactions", {}) or {})
+    interactions[iid] = inter
+    state = replace(state, interactions=interactions)
+    state, ev = emit(state, actor=initiator, type="task_request", args={"interaction_id": iid, "target": target, "tool": tool_name, "tool_args": dict(tool_args or {})}, ok=True, message="task requested")
+    return state, ToolResult(True, f"Task request sent ({iid}).", events=(ev,), consume_turn=True)
+
+
+def task_accept(state: WorldState, *, target: str, interaction_id: str) -> Tuple[WorldState, ToolResult]:
+    interactions = dict(getattr(state, "interactions", {}) or {})
+    inter = interactions.get(interaction_id)
+    if not inter or inter.kind != "task_request":
+        return state, ToolResult(False, "No such task request.")
+    if inter.target != target:
+        return state, ToolResult(False, "Denied: not your task request.")
+    if inter.status != "pending":
+        return state, ToolResult(False, f"Denied: request is {inter.status}.")
+
+    interactions[interaction_id] = replace(inter, status="active", started_turn=state.turn)
+    state = replace(state, interactions=interactions)
+    state, ev = emit(state, actor=target, type="task_accept", args={"interaction_id": interaction_id}, ok=True, message="task accepted")
+    return state, ToolResult(True, f"Accepted task request ({interaction_id}).", events=(ev,), consume_turn=True)
+
+
+def task_reject(state: WorldState, *, target: str, interaction_id: str, reason: str = "rejected") -> Tuple[WorldState, ToolResult]:
+    interactions = dict(getattr(state, "interactions", {}) or {})
+    inter = interactions.get(interaction_id)
+    if not inter or inter.kind != "task_request":
+        return state, ToolResult(False, "No such task request.")
+    if inter.target != target:
+        return state, ToolResult(False, "Denied: not your task request.")
+    if inter.status != "pending":
+        return state, ToolResult(False, f"Denied: request is {inter.status}.")
+
+    interactions[interaction_id] = replace(inter, status="declined", ended_by=target, ended_reason=reason, ended_turn=state.turn)
+    state = replace(state, interactions=interactions)
+    state, ev = emit(state, actor=target, type="task_reject", args={"interaction_id": interaction_id, "reason": reason}, ok=True, message="task rejected")
+    return state, ToolResult(True, f"Rejected task request ({interaction_id}).", events=(ev,), consume_turn=True)
 
 def talk_request(state: WorldState, *, initiator: str, target: str, room_id: str) -> Tuple[WorldState, ToolResult]:
     if initiator == target:
@@ -174,7 +249,16 @@ def talk_say(state: WorldState, *, who: str, interaction_id: str, text: str) -> 
     interactions[interaction_id] = updated
     state = replace(state, interactions=interactions)
 
-    state, ev_say = emit(state, actor=who, type="talk_say", args={"interaction_id": interaction_id, "text": text}, ok=True, message="said something")
+    # Include the actual utterance in the event message so working-memory can show full context.
+    # (We still keep the raw text in args for any downstream processing.)
+    state, ev_say = emit(
+        state,
+        actor=who,
+        type="talk_say",
+        args={"interaction_id": interaction_id, "text": text},
+        ok=True,
+        message=f"{who}: {text}",
+    )
 
     # Auto-close after 3 exchanges total (6 utterances)
     evs = [ev_say]

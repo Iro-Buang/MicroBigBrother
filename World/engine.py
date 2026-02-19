@@ -5,7 +5,7 @@ from dataclasses import replace
 from typing import Dict, List, Tuple, Any
 
 from World.house import House
-from World.state import WorldState
+from World.state import WorldState, current_actor
 from World.events import Event, new_event
 from World.results import ToolResult
 
@@ -27,6 +27,9 @@ def _with_state(
     *,
     locations: Dict[str, str] | None = None,
     room_locked: Dict[str, bool] | None = None,
+    completed_tasks=None,
+    actor_counters=None,
+    actor_flags=None,
     turn: int | None = None,
     turn_order: List[str] | None = None,
     turn_index: int | None = None,
@@ -47,6 +50,13 @@ def _with_state(
         kwargs["locations"] = locations
     if room_locked is not None:
         kwargs["room_locked"] = room_locked
+
+    if completed_tasks is not None:
+        kwargs["completed_tasks"] = completed_tasks
+    if actor_counters is not None:
+        kwargs["actor_counters"] = actor_counters
+    if actor_flags is not None:
+        kwargs["actor_flags"] = actor_flags
     if turn is not None:
         kwargs["turn"] = turn
     if turn_order is not None:
@@ -165,6 +175,16 @@ def can_toggle_lock(house: House, state: WorldState, who: str, room_id: str) -> 
 # Turn system
 # ----------------------------
 
+
+def _reset_turn_flags(state: WorldState, actor_id: str) -> WorldState:
+    flags = dict(getattr(state, "actor_flags", {}) or {})
+    actor_flags = dict(flags.get(actor_id, {}) or {})
+    # per-turn tool constraints
+    actor_flags["cooked_this_turn"] = False
+    flags[actor_id] = actor_flags
+    return _with_state(state, actor_flags=flags)
+
+
 def advance_turn(state: WorldState) -> WorldState:
     order = _get_turn_order(state)
     idx = _get_turn_index(state)
@@ -220,6 +240,16 @@ def end_turn(state: WorldState, who: str) -> Tuple[WorldState, ToolResult]:
     Manual skip. Advances to next actor. Round increases only on wrap.
     """
     state, ev = emit(state, actor=who, type="end_turn", args={}, ok=True, message="ended turn")
+    new_state = advance_turn(state)
+    return new_state, ToolResult(True, f"Turn advanced to {new_state.turn}.", events=(ev,), consume_turn=False)
+
+
+def skip_turn(state: WorldState, who: str) -> Tuple[WorldState, ToolResult]:
+    """
+    Explicit skip. Advances to next actor. Round increases only on wrap.
+    (Different from end_turn for logging/intent purposes.)
+    """
+    state, ev = emit(state, actor=who, type="skip", args={}, ok=True, message="skipped turn")
     new_state = advance_turn(state)
     return new_state, ToolResult(True, f"Turn advanced to {new_state.turn}.", events=(ev,), consume_turn=False)
 

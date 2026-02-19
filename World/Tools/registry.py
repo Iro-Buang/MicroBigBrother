@@ -4,7 +4,7 @@ from typing import Any, Dict, Tuple
 
 from World.results import ToolResult
 from World.engine import advance_turn
-from World.interaction_engine import auto_decline_pending_talks
+from World.interaction_engine import auto_decline_pending_talks, auto_reject_pending_task_requests
 from World.Tools.base import ActionContext, Tool
 from World.Tools.spec import ToolSpec
 
@@ -40,9 +40,10 @@ class ToolRegistry:
 
         # "Decay" mechanic: if you have pending talk requests directed at you,
         # and you do anything OTHER than accept/decline, they auto-decline.
-        if tool_name not in ("talk_accept", "talk_decline"):
+        if tool_name not in ("talk_accept", "talk_decline", "task_accept", "task_reject"):
             new_state, _evs = auto_decline_pending_talks(ctx.state, target=ctx.actor, reason="decay")
-            ctx = ActionContext(house=ctx.house, state=new_state, actor=ctx.actor)
+            new_state2, _evs2 = auto_reject_pending_task_requests(new_state, target=ctx.actor, reason="decay")
+            ctx = ActionContext(house=ctx.house, state=new_state2, actor=ctx.actor)
 
         new_state, res = tool.run(ctx, args)
 

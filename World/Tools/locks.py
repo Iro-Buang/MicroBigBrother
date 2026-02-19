@@ -124,3 +124,51 @@ class UnlockRoomTool:
                 return ctx.state, ToolResult(False, msg)
 
         return unlock_room(ctx.house, ctx.state, ctx.actor, room_id)
+
+
+class AnnaUnlockRoomTool:
+    """Anna-only unlock that can unlock any locked room, but only from the living room."""
+    name = "unlock_room"
+
+    @staticmethod
+    def _choices(ctx: ActionContext) -> Dict[str, list[str]]:
+        if ctx.actor != "anna":
+            return {"room_id": []}
+        if ctx.state.locations.get(ctx.actor) != "living_room":
+            return {"room_id": []}
+        locked = [rid for rid, is_locked in (ctx.state.room_locked or {}).items() if is_locked]
+        # Don't include living room even if it's ever added later
+        locked = [r for r in locked if r != "living_room"]
+        return {"room_id": sorted(locked)}
+
+    spec = ToolSpec(
+        name="unlock_room",
+        description="(Anna) Unlock a locked room from the living room.",
+        args_schema={"room_id": "Locked room to unlock."},
+        visible=lambda ctx: (ctx.actor == "anna") and (ctx.state.locations.get(ctx.actor) == "living_room") and any((ctx.state.room_locked or {}).values()),
+        choices=_choices.__func__,
+    )
+
+    def can_run(self, ctx: ActionContext, args: Dict[str, Any]) -> Tuple[bool, str]:
+        if ctx.actor != "anna":
+            return False, "Denied: only Anna can use unlock_room."
+        if ctx.state.locations.get(ctx.actor) != "living_room":
+            return False, "Denied: Anna can only unlock rooms from the living_room."
+        if "room_id" not in args or not isinstance(args["room_id"], str):
+            return False, "unlock_room requires args: {room_id}"
+        return True, "OK"
+
+    def run(self, ctx: ActionContext, args: Dict[str, Any]):
+        room_id = args["room_id"]
+        locked = dict(getattr(ctx.state, "room_locked", {}) or {})
+        if room_id not in locked:
+            return ctx.state, ToolResult(False, f"Unknown room: {room_id}")
+        if not locked.get(room_id, False):
+            return ctx.state, ToolResult(False, f"Already unlocked: {room_id}")
+
+        locked[room_id] = False
+        from dataclasses import replace
+        new_state = replace(ctx.state, room_locked=locked)
+        from World.engine import emit
+        new_state, ev = emit(new_state, actor=ctx.actor, type="unlock_room", args={"room_id": room_id}, ok=True, message="unlocked")
+        return new_state, ToolResult(True, f"Unlocked {room_id}.", events=(ev,))
